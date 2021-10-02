@@ -10,11 +10,11 @@ use specs::{Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
 
 use crate::{
     game::{
-        component::{Transform, Velocity},
+        component::{Display, Transform, Velocity},
         resource::DeltaTime,
         system::{HelloWorld, RenderSystem, UpdatePos},
     },
-    renderer::RendererState,
+    renderer::SpriteRenderer,
 };
 
 pub struct App<'a> {
@@ -35,7 +35,7 @@ impl<'a> App<'_> {
         let mut render_dispatcher = DispatcherBuilder::new()
             .with(
                 RenderSystem {
-                    renderer_state: Some(pollster::block_on(RendererState::new(window))),
+                    renderer: Some(pollster::block_on(SpriteRenderer::new(window))),
                 },
                 "render_system",
                 &[],
@@ -52,6 +52,7 @@ impl<'a> App<'_> {
                 rot: glam::Quat::IDENTITY,
             })
             .with(Velocity { x: 1.0, y: -1.0 })
+            .with(Display { sprite_idx: 0 })
             .build();
 
         world
@@ -61,6 +62,7 @@ impl<'a> App<'_> {
                 rot: glam::Quat::IDENTITY,
             })
             .with(Velocity { x: 1.0, y: 1.0 })
+            .with(Display { sprite_idx: 0 })
             .build();
 
         world
@@ -70,6 +72,7 @@ impl<'a> App<'_> {
                 rot: glam::Quat::IDENTITY,
             })
             .with(Velocity { x: -1.0, y: -1.0 })
+            .with(Display { sprite_idx: 0 })
             .build();
 
         Self {
@@ -79,8 +82,6 @@ impl<'a> App<'_> {
             close_requested: false,
         }
     }
-
-    pub fn on_setup(&mut self) {}
 
     pub fn on_update(&mut self, delta_time: Duration) -> Option<ControlFlow> {
         if self.close_requested {

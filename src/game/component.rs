@@ -25,7 +25,5 @@ pub struct Velocity {
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
 pub struct Display {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
+    pub sprite_idx: u32,
 }

@@ -18,9 +18,7 @@ fn main() {
 
     let mut previous_tick = Instant::now();
     let mut lag = 0_u32;
-    let ms_per_update = 1000 / 50; // 50 ticks per second
-
-    app.on_setup();
+    let ms_per_update = 1000 / 60; // 60 ticks per second
 
     event_loop.run(move |event, _, control_flow| {
         match event {
