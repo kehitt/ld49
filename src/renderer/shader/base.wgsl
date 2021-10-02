@@ -1,5 +1,19 @@
 // Vertex shader
 
+[[block]]
+struct ModelUniform {
+    model_mat: mat4x4<f32>;
+};
+[[group(0), binding(0)]]
+var<uniform> model: ModelUniform;
+
+[[block]]
+struct CameraUniform {
+    view_proj_mat: mat4x4<f32>;
+};
+[[group(1), binding(0)]]
+var<uniform> camera: CameraUniform;
+
 struct VertexInput {
     [[location(0)]] position: vec3<f32>;
 };
@@ -16,7 +30,7 @@ fn main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.position = in.position;
-    out.clip_position = vec4<f32>(in.position, 1.0);
+    out.clip_position = camera.view_proj_mat * model.model_mat * vec4<f32>(in.position, 1.0);
     return out;
 }
 

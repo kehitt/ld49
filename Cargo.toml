@@ -12,7 +12,7 @@ wgpu = { version = "0.10.2", features = [ "spirv" ] }
 glam = "0.18.0"
 pollster = "0.2.4"
 bytemuck = { version = "1.7.2", features = [ "derive" ] }
-specs = "0.17.0"
+specs = { version = "0.17.0", features = ["specs-derive"] }
 
 [profile.release]
 debug = true

@@ -3,15 +3,20 @@ use std::borrow::Cow;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
 
-pub struct Renderer {
-    surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
+pub struct RendererState {
+    pub surface: wgpu::Surface,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub config: wgpu::SurfaceConfiguration,
+    pub size: winit::dpi::PhysicalSize<u32>,
 
-    render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
+    pub render_pipeline: wgpu::RenderPipeline,
+    pub vertex_buffer: wgpu::Buffer,
+
+    pub view_proj_buffer: wgpu::Buffer,
+    pub view_proj_bind_group: wgpu::BindGroup,
+    pub model_mat_buffer: wgpu::Buffer,
+    pub model_mat_bind_group: wgpu::BindGroup,
 }
 
 #[repr(C)]
@@ -22,13 +27,22 @@ struct Vertex {
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [0.0, 0.5, 0.0],
+        position: [1.0, 1.0, 0.0],
     },
     Vertex {
-        position: [-0.5, -0.5, 0.0],
+        position: [-1.0, 1.0, 0.0],
     },
     Vertex {
-        position: [0.5, -0.5, 0.0],
+        position: [-1.0, -1.0, 0.0],
+    },
+    Vertex {
+        position: [1.0, 1.0, 0.0],
+    },
+    Vertex {
+        position: [-1.0, -1.0, 0.0],
+    },
+    Vertex {
+        position: [1.0, -1.0, 0.0],
     },
 ];
 
@@ -46,8 +60,12 @@ impl Vertex {
     }
 }
 
-impl Renderer {
+impl RendererState {
     pub async fn new(window: &Window) -> Self {
+        let opengl_to_wgpu_matrix: glam::Mat4 = glam::Mat4::from_cols_array(&[
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
+        ]);
+
         let size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::Backends::all());
         let surface = unsafe { instance.create_surface(window) };
@@ -89,10 +107,75 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let ratio = f64::from(size.width) / f64::from(size.height);
+        let mat = opengl_to_wgpu_matrix * glam::Mat4::orthographic_lh(
+            -10.0 * ratio as f32,
+            10.0 * ratio as f32,
+            -10.0,
+            10.0,
+            0.1,
+            1000.0,
+        );
+        let view_proj_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("ViewProj Buffer"),
+            contents: bytemuck::cast_slice(&mat.to_cols_array()),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let view_proj_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("ViewProj Bind Group Layout"),
+            });
+        let view_proj_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &view_proj_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: view_proj_buffer.as_entire_binding(),
+            }],
+            label: Some("ViewProj Bind Group"),
+        });
+
+        let model_mat_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("ModelMat Buffer"),
+            contents: bytemuck::cast_slice(&glam::Mat4::IDENTITY.to_cols_array()),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let model_mat_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("ModelMat Bind Group Layout"),
+            });
+        let model_mat_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &model_mat_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: model_mat_buffer.as_entire_binding(),
+            }],
+            label: Some("ModelMat Bind Group"),
+        });
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[],
+                bind_group_layouts: &[&view_proj_bind_group_layout, &model_mat_bind_group_layout],
                 push_constant_ranges: &[],
             });
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -137,6 +220,10 @@ impl Renderer {
             size,
             render_pipeline,
             vertex_buffer,
+            view_proj_buffer,
+            view_proj_bind_group,
+            model_mat_buffer,
+            model_mat_bind_group,
         }
     }
 
@@ -147,50 +234,5 @@ impl Renderer {
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
         }
-    }
-
-    pub fn on_draw(&mut self) {
-        match self.draw_frame() {
-            Ok(_) => {}
-            Err(wgpu::SurfaceError::Lost) => self.on_resize(self.size),
-            Err(wgpu::SurfaceError::OutOfMemory) => panic!("Out of memory"),
-            Err(e) => eprintln!("{:?}", e),
-        }
-    }
-
-    fn draw_frame(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_frame()?.output;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 1.0,
-                        }),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: None,
-            });
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..3, 0..1);
-        }
-        self.queue.submit(std::iter::once(encoder.finish()));
-        Ok(())
     }
 }
