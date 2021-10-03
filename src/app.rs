@@ -14,7 +14,7 @@ use crate::{
         system::{
             AsteroidSpawnerSystem, EntityLifetimeSystem, GameManagerSystem,
             PlayerBoundsEnforcerSystem, PlayerCollisionSystem, PlayerMovementSystem, RenderSystem,
-            VelocityApplicatorSystem,
+            RepairPackManagerSystem, VelocityApplicatorSystem,
         },
     },
     renderer::SpriteRenderer,
@@ -51,17 +51,18 @@ impl<'a> App<'_> {
             .with(
                 VelocityApplicatorSystem::default(),
                 "velocity_applicator",
-                &["game_manager_system", "player_movement_system"],
+                &[],
             )
-            .with(
-                PlayerBoundsEnforcerSystem::default(),
-                "bounds_keeper",
-                &["game_manager_system"],
-            )
+            .with(PlayerBoundsEnforcerSystem::default(), "bounds_keeper", &[])
             .with(
                 EntityLifetimeSystem::default(),
                 "entity_lifetime_system",
-                &["game_manager_system"],
+                &[],
+            )
+            .with(
+                RepairPackManagerSystem::default(),
+                "repair_pack_manager_system",
+                &[],
             )
             .build();
 

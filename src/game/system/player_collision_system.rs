@@ -40,9 +40,16 @@ impl<'a> System<'a> for PlayerCollisionSystem {
                             .scale(other_transform.scale),
                     )
                 {
-                    if let ColliderTag::Asteroid = other_collider.tag {
-                        player_comp.health -= 50.0 * dt.0.as_secs_f32();
-                        println!("Player health: {}", player_comp.health);
+                    match other_collider.tag {
+                        ColliderTag::Player => (),
+                        ColliderTag::Asteroid => {
+                            player_comp.health -= 50.0 * dt.0.as_secs_f32();
+                            println!("Player health: {}", player_comp.health);
+                        }
+                        ColliderTag::Health => {
+                            player_comp.health += 10.0;
+                            println!("Player health: {}", player_comp.health);
+                        }
                     }
                 }
             }

@@ -2,8 +2,10 @@ use specs::prelude::*;
 
 use crate::game::{
     component::{Collider, ColliderTag, Display, Player, Transform, Velocity},
-    resource::GameState,
+    resource::{DeltaTime, GameState},
 };
+
+const GAMERULE_PLAYER_TICK_DAMAGE: f32 = 0.8;
 
 #[derive(Default)]
 pub struct GameManagerSystem;
@@ -14,13 +16,17 @@ impl<'a> System<'a> for GameManagerSystem {
         Entities<'a>,
         Read<'a, LazyUpdate>,
         Write<'a, GameState>,
+        Read<'a, DeltaTime>,
     );
 
     fn setup(&mut self, world: &mut World) {
         Self::SystemData::setup(world);
     }
 
-    fn run(&mut self, (mut player_storage, entities, updater, mut game_state): Self::SystemData) {
+    fn run(
+        &mut self,
+        (mut player_storage, entities, updater, mut game_state, dt): Self::SystemData,
+    ) {
         match *game_state {
             GameState::GameStateInit {} => {
                 spawn_player(&entities, &updater);
@@ -28,6 +34,7 @@ impl<'a> System<'a> for GameManagerSystem {
             }
             GameState::GameStatePlay {} => {
                 for (entity, player) in (&entities, &mut player_storage).join() {
+                    player.health -= GAMERULE_PLAYER_TICK_DAMAGE * dt.0.as_secs_f32();
                     if player.health <= 0.0 {
                         entities.delete(entity).unwrap();
                         *game_state = GameState::GameStateEnd {};

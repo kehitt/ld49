@@ -8,6 +8,7 @@ mod player_bounds_enforcer_system;
 mod player_collision_system;
 mod player_movement_system;
 mod render_system;
+mod repair_pack_manager_system;
 
 pub use asteroid_spawner_system::AsteroidSpawnerSystem;
 pub use entity_lifetime_system::EntityLifetimeSystem;
@@ -16,6 +17,7 @@ pub use player_bounds_enforcer_system::PlayerBoundsEnforcerSystem;
 pub use player_collision_system::PlayerCollisionSystem;
 pub use player_movement_system::PlayerMovementSystem;
 pub use render_system::RenderSystem;
+pub use repair_pack_manager_system::RepairPackManagerSystem;
 
 #[derive(Default)]
 pub struct VelocityApplicatorSystem {}
