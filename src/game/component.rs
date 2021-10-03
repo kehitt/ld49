@@ -1,4 +1,4 @@
-use specs::{Component, NullStorage, VecStorage};
+use specs::{Component, VecStorage};
 
 use crate::physics::AABB;
 
@@ -61,18 +61,26 @@ pub struct Display {
     pub sprite_idx: u32,
 }
 
-#[derive(Component, Debug, Default)]
-#[storage(NullStorage)]
-pub struct Player;
+#[derive(Component, Debug)]
+#[storage(VecStorage)]
+pub struct Player {
+    pub health: f32,
+}
 
-#[derive(Debug)]
+impl Default for Player {
+    fn default() -> Self {
+        Self { health: 100.0 }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum ColliderTag {
     Player,
     Asteroid,
     Health,
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, PartialEq)]
 #[storage(VecStorage)]
 pub struct Collider {
     pub tag: ColliderTag,
@@ -86,4 +94,10 @@ impl Collider {
             bounding_box: Default::default(),
         }
     }
+}
+
+#[derive(Component, Debug)]
+#[storage(VecStorage)]
+pub struct Lifetime {
+    pub remaining: f32,
 }

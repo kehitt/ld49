@@ -3,7 +3,7 @@ use winit::dpi::PhysicalSize;
 
 use crate::{
     game::component::{Display, Transform},
-    game::resource::WindowEvent,
+    game::resource::{GameWindowSize, WindowEvent},
     renderer::SpriteRenderer,
 };
 
@@ -27,6 +27,7 @@ impl<'a> System<'a> for RenderSystem {
         ReadStorage<'a, Transform>,
         ReadStorage<'a, Display>,
         Read<'a, EventChannel<WindowEvent>>,
+        Write<'a, GameWindowSize>,
     );
 
     fn setup(&mut self, world: &mut World) {
@@ -38,14 +39,15 @@ impl<'a> System<'a> for RenderSystem {
         );
     }
 
-    fn run(&mut self, (pos, disp, events): Self::SystemData) {
+    fn run(&mut self, (pos, disp, events, mut game_window_size): Self::SystemData) {
         if let Some(renderer) = &mut self.renderer {
             // Process events
             for event in events.read(&mut self.reader.as_mut().unwrap()) {
                 #[allow(unreachable_patterns)]
                 match event {
                     WindowEvent::Resize(new_width, new_height) => {
-                        renderer.on_resize(PhysicalSize::new(*new_width, *new_height))
+                        renderer.on_resize(PhysicalSize::new(*new_width, *new_height));
+                        *game_window_size = GameWindowSize(*new_width, *new_height);
                     }
                     _ => (),
                 }

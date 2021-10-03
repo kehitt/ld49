@@ -6,15 +6,15 @@ use winit::{
     window::Window,
 };
 
-use specs::{shrev::EventChannel, Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
+use specs::{shrev::EventChannel, Dispatcher, DispatcherBuilder, World, WorldExt};
 
 use crate::{
     game::{
-        component::{Collider, ColliderTag, Display, Player, Transform, Velocity},
-        resource::{DeltaTime, KeyboardEvent, WindowEvent as GameWindowEvent},
+        resource::{DeltaTime, GameWindowSize, KeyboardEvent, WindowEvent as GameWindowEvent},
         system::{
-            PlayerCollisionSystem, PlayerMovementSystem, RenderSystem, ScreenBoundsKeeper,
-            VelocityApplicator,
+            AsteroidSpawnerSystem, EntityLifetimeSystem, GameManagerSystem,
+            PlayerBoundsEnforcerSystem, PlayerCollisionSystem, PlayerMovementSystem, RenderSystem,
+            VelocityApplicatorSystem,
         },
     },
     renderer::SpriteRenderer,
@@ -32,25 +32,36 @@ impl<'a> App<'_> {
         let size = window.inner_size();
         let mut world = World::new();
         let mut update_dispatcher = DispatcherBuilder::new()
+            .with(GameManagerSystem::default(), "game_manager_system", &[])
+            .with(
+                AsteroidSpawnerSystem::default(),
+                "asteroid_spawner_system",
+                &["game_manager_system"],
+            )
             .with(
                 PlayerMovementSystem::default(),
                 "player_movement_system",
-                &[],
+                &["game_manager_system"],
             )
             .with(
                 PlayerCollisionSystem::default(),
                 "player_collision_system",
-                &[],
+                &["game_manager_system"],
             )
             .with(
-                VelocityApplicator::default(),
+                VelocityApplicatorSystem::default(),
                 "velocity_applicator",
-                &["player_movement_system"],
+                &["game_manager_system", "player_movement_system"],
             )
             .with(
-                ScreenBoundsKeeper::new((size.width, size.height)),
+                PlayerBoundsEnforcerSystem::default(),
                 "bounds_keeper",
-                &[],
+                &["game_manager_system"],
+            )
+            .with(
+                EntityLifetimeSystem::default(),
+                "entity_lifetime_system",
+                &["game_manager_system"],
             )
             .build();
 
@@ -71,25 +82,11 @@ impl<'a> App<'_> {
         update_dispatcher.setup(&mut world);
         render_dispatcher.setup(&mut world);
 
-        world
-            .create_entity()
-            .with(Transform {
-                position: glam::Vec2::new(100.0, 0.0),
-                ..Default::default()
-            })
-            .with(Velocity::default())
-            .with(Display { sprite_idx: 0 })
-            .with(Player)
-            .with(Collider::new(ColliderTag::Player))
-            .build();
-
-        world
-            .create_entity()
-            .with(Transform::default())
-            .with(Velocity::default())
-            .with(Display { sprite_idx: 1 })
-            .with(Collider::new(ColliderTag::Asteroid))
-            .build();
+        {
+            // Setup for the first time, since render system is not called before all the updates
+            let mut game_window_size = world.write_resource::<GameWindowSize>();
+            *game_window_size = GameWindowSize(size.width, size.height);
+        }
 
         Self {
             world: world,

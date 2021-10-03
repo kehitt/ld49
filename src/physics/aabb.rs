@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct AABB {
     pos: glam::Vec2,
     size: glam::Vec2,
