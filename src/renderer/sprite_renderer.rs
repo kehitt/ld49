@@ -213,15 +213,17 @@ impl SpriteRenderer {
     }
 
     fn calc_ortho_matrix(window_size: winit::dpi::PhysicalSize<u32>) -> glam::Mat4 {
-        let ratio = f64::from(window_size.width) / f64::from(window_size.height);
+        // Screen coordinates are pixel coordinates, recentered to 0,0 being the center of the window
+        let half_width = window_size.width / 2;
+        let half_height = window_size.height / 2;
         OPENGL_TO_WGPU_MATRIX
             * glam::Mat4::orthographic_lh(
-                -10.0 * ratio as f32,
-                10.0 * ratio as f32,
-                -10.0,
-                10.0,
+                -(half_width as f32),
+                half_width as f32,
+                -(half_height as f32),
+                half_height as f32,
                 0.1,
-                1000.0,
+                10.0,
             )
     }
 }

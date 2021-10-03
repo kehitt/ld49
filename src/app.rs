@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use winit::{
-    event::{Event, WindowEvent},
+    event::{ElementState, Event, KeyboardInput, WindowEvent},
     event_loop::ControlFlow,
     window::Window,
 };
@@ -10,9 +10,9 @@ use specs::{shrev::EventChannel, Builder, Dispatcher, DispatcherBuilder, World, 
 
 use crate::{
     game::{
-        component::{Display, Transform, Velocity},
-        resource::DeltaTime,
-        system::{HelloWorld, RenderSystem, RenderSystemEvent, UpdatePos},
+        component::{Display, Player, Transform, Velocity},
+        resource::{DeltaTime, KeyboardEvent, WindowEvent as GameWindowEvent},
+        system::{PlayerMovementSystem, RenderSystem, ScreenBoundsKeeper, VelocityApplicator},
     },
     renderer::SpriteRenderer,
 };
@@ -26,10 +26,20 @@ pub struct App<'a> {
 
 impl<'a> App<'_> {
     pub fn new(window: &Window) -> Self {
+        let size = window.inner_size();
         let mut world = World::new();
         let mut update_dispatcher = DispatcherBuilder::new()
-            .with(UpdatePos::default(), "update_pos", &[])
-            .with(HelloWorld, "hello_updated", &["update_pos"])
+            .with(PlayerMovementSystem::default(), "player_system", &[])
+            .with(
+                VelocityApplicator::default(),
+                "velocity_applicator",
+                &["player_system"],
+            )
+            .with(
+                ScreenBoundsKeeper::new((size.width, size.height)),
+                "bounds_keeper",
+                &["velocity_applicator"],
+            )
             .build();
 
         let sprite_atlas_bytes = include_bytes!("../assets/spritesheet.png");
@@ -52,31 +62,19 @@ impl<'a> App<'_> {
         world
             .create_entity()
             .with(Transform {
-                pos: glam::Vec3::new(1.0, 0.0, -10.0),
-                rot: glam::Quat::IDENTITY,
+                position: glam::Vec2::new(1.0, 0.0),
+                ..Default::default()
             })
-            .with(Velocity { x: 1.0, y: -1.0 })
+            .with(Velocity::default())
+            .with(Display { sprite_idx: 0 })
+            .with(Player)
+            .build();
+
+        world
+            .create_entity()
+            .with(Transform::default())
+            .with(Velocity::default())
             .with(Display { sprite_idx: 1 })
-            .build();
-
-        world
-            .create_entity()
-            .with(Transform {
-                pos: glam::Vec3::new(0.0, 1.0, -10.0),
-                rot: glam::Quat::IDENTITY,
-            })
-            .with(Velocity { x: 1.0, y: 1.0 })
-            .with(Display { sprite_idx: 0 })
-            .build();
-
-        world
-            .create_entity()
-            .with(Transform {
-                pos: glam::Vec3::new(0.0, 0.0, -10.0),
-                rot: glam::Quat::IDENTITY,
-            })
-            .with(Velocity { x: -1.0, y: -1.0 })
-            .with(Display { sprite_idx: 0 })
             .build();
 
         Self {
@@ -114,18 +112,36 @@ impl<'a> App<'_> {
                 WindowEvent::CloseRequested => self.close_requested = true,
                 WindowEvent::Resized(physical_size) => self
                     .world
-                    .fetch_mut::<EventChannel<RenderSystemEvent>>()
-                    .single_write(RenderSystemEvent::Resize(
+                    .fetch_mut::<EventChannel<GameWindowEvent>>()
+                    .single_write(GameWindowEvent::Resize(
                         physical_size.width,
                         physical_size.height,
                     )),
                 WindowEvent::ScaleFactorChanged { new_inner_size, .. } => self
                     .world
-                    .fetch_mut::<EventChannel<RenderSystemEvent>>()
-                    .single_write(RenderSystemEvent::Resize(
+                    .fetch_mut::<EventChannel<GameWindowEvent>>()
+                    .single_write(GameWindowEvent::Resize(
                         new_inner_size.width,
                         new_inner_size.height,
                     )),
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: element_state,
+                            virtual_keycode: Some(keycode),
+                            ..
+                        },
+                    ..
+                } => {
+                    let event = match element_state {
+                        ElementState::Pressed => KeyboardEvent::Pressed(keycode),
+                        ElementState::Released => KeyboardEvent::Released(keycode),
+                    };
+
+                    self.world
+                        .fetch_mut::<EventChannel<KeyboardEvent>>()
+                        .single_write(event)
+                }
                 _ => (),
             },
             _ => (),

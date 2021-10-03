@@ -1,42 +1,79 @@
 use specs::prelude::*;
+use specs::shrev::EventChannel;
 
-use super::{
-    component::{Transform, Velocity},
-    resource::DeltaTime,
-};
+use super::component::{Transform, Velocity};
+use super::resource::WindowEvent;
 
+mod player_movement_system;
 mod render_system;
-pub use render_system::{RenderSystem, RenderSystemEvent};
 
-pub struct HelloWorld;
+pub use player_movement_system::PlayerMovementSystem;
+pub use render_system::RenderSystem;
 
-impl<'a> System<'a> for HelloWorld {
-    type SystemData = ReadStorage<'a, Transform>;
+#[derive(Default)]
+pub struct VelocityApplicator {}
 
-    fn run(&mut self, position: Self::SystemData) {
-        for position in position.join() {}
+impl<'a> System<'a> for VelocityApplicator {
+    type SystemData = (ReadStorage<'a, Velocity>, WriteStorage<'a, Transform>);
+
+    fn run(&mut self, (vel, mut pos): Self::SystemData) {
+        for (velocity, transform) in (&vel, &mut pos).join() {
+            transform.position += velocity.direction * velocity.speed;
+        }
     }
 }
 
 #[derive(Default)]
-pub struct UpdatePos {
-    angle: f32,
+pub struct ScreenBoundsKeeper {
+    bounds: (u32, u32),
+    reader: Option<ReaderId<WindowEvent>>,
 }
 
-impl<'a> System<'a> for UpdatePos {
+impl ScreenBoundsKeeper {
+    pub fn new(init_bounds: (u32, u32)) -> Self {
+        Self {
+            bounds: init_bounds,
+            reader: None,
+        }
+    }
+}
+
+impl<'a> System<'a> for ScreenBoundsKeeper {
     type SystemData = (
-        Read<'a, DeltaTime>,
-        ReadStorage<'a, Velocity>,
-        WriteStorage<'a, Transform>,
+        WriteStorage<'a, Velocity>,
+        ReadStorage<'a, Transform>,
+        Read<'a, EventChannel<WindowEvent>>,
     );
 
-    fn run(&mut self, (delta, vel, mut pos): Self::SystemData) {
-        let delta = delta.0.as_secs_f32();
+    fn setup(&mut self, world: &mut World) {
+        Self::SystemData::setup(world);
+        self.reader = Some(
+            world
+                .fetch_mut::<EventChannel<WindowEvent>>()
+                .register_reader(),
+        );
+    }
 
-        self.angle += delta;
+    fn run(&mut self, (mut vel, pos, events): Self::SystemData) {
+        for event in events.read(&mut self.reader.as_mut().unwrap()) {
+            #[allow(unreachable_patterns)]
+            match event {
+                WindowEvent::Resize(new_width, new_height) => {
+                    self.bounds = (*new_width, *new_height);
+                }
+                _ => (),
+            }
+        }
 
-        for (velocity, transform) in (&vel, &mut pos).join() {
-            transform.rot = glam::Quat::from_rotation_z(self.angle);
+        for (velocity, transform) in (&mut vel, &pos).join() {
+            let half_width = (self.bounds.0 / 2) as f32;
+            let half_height = (self.bounds.1 / 2) as f32;
+
+            if transform.position.x > half_width || transform.position.x < -half_width {
+                velocity.direction.x = -velocity.direction.x;
+            } else if transform.position.y > half_height || transform.position.y < -half_height {
+                velocity.direction.y = -velocity.direction.y;
+            }
         }
     }
 }

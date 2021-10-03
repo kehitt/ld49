@@ -3,18 +3,14 @@ use winit::dpi::PhysicalSize;
 
 use crate::{
     game::component::{Display, Transform},
+    game::resource::WindowEvent,
     renderer::SpriteRenderer,
 };
-
-#[derive(Debug)]
-pub enum RenderSystemEvent {
-    Resize(u32, u32),
-}
 
 #[derive(Default)]
 pub struct RenderSystem {
     renderer: Option<SpriteRenderer>,
-    reader: Option<ReaderId<RenderSystemEvent>>,
+    reader: Option<ReaderId<WindowEvent>>,
 }
 
 impl RenderSystem {
@@ -30,14 +26,14 @@ impl<'a> System<'a> for RenderSystem {
     type SystemData = (
         ReadStorage<'a, Transform>,
         ReadStorage<'a, Display>,
-        Read<'a, EventChannel<RenderSystemEvent>>,
+        Read<'a, EventChannel<WindowEvent>>,
     );
 
     fn setup(&mut self, world: &mut World) {
         Self::SystemData::setup(world);
         self.reader = Some(
             world
-                .fetch_mut::<EventChannel<RenderSystemEvent>>()
+                .fetch_mut::<EventChannel<WindowEvent>>()
                 .register_reader(),
         );
     }
@@ -46,10 +42,12 @@ impl<'a> System<'a> for RenderSystem {
         if let Some(renderer) = &mut self.renderer {
             // Process events
             for event in events.read(&mut self.reader.as_mut().unwrap()) {
+                #[allow(unreachable_patterns)]
                 match event {
-                    RenderSystemEvent::Resize(new_width, new_height) => {
+                    WindowEvent::Resize(new_width, new_height) => {
                         renderer.on_resize(PhysicalSize::new(*new_width, *new_height))
                     }
+                    _ => (),
                 }
             }
             // Render stuff
