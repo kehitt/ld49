@@ -2,12 +2,12 @@ use wgpu::util::DeviceExt;
 use winit::window::Window;
 
 use crate::renderer::{
-    pipeline::{SpriteBinds, SpritePipelineGlobals},
+    sprite_pipeline::{SpriteBinds, SpritePipelineGlobals},
     texture::Texture,
 };
 
 use super::{
-    pipeline::{Instance, SpriteBindGroup, SpritePipeline, Vertex},
+    sprite_pipeline::{Instance, SpriteBindGroup, SpritePipeline, Vertex},
     Renderer,
 };
 
@@ -52,6 +52,8 @@ pub struct SpriteRenderer {
     sprite_bind_group: SpriteBindGroup,
 
     vertex_buffer: wgpu::Buffer,
+
+    globals: SpritePipelineGlobals,
     #[allow(dead_code)]
     globals_buffer: wgpu::Buffer,
 
@@ -59,7 +61,7 @@ pub struct SpriteRenderer {
 }
 
 impl SpriteRenderer {
-    pub async fn new(window: &Window) -> Self {
+    pub async fn new(window: &Window, sprite_atlas_data: &[u8], sprite_size: (u32, u32)) -> Self {
         let renderer = Renderer::new(window).await;
 
         let shader_module = renderer
@@ -73,38 +75,28 @@ impl SpriteRenderer {
             &sprite_binds,
         );
 
-        let sprite_atlas_bytes = include_bytes!("../../assets/spritesheet.png");
         let sprite_atlas = Texture::from_bytes(
             &renderer.device,
             &renderer.queue,
-            sprite_atlas_bytes,
+            sprite_atlas_data,
             "spritesheet.png",
         )
         .unwrap();
 
-        let ratio = f64::from(renderer.size.width) / f64::from(renderer.size.height);
-        let mat = OPENGL_TO_WGPU_MATRIX
-            * glam::Mat4::orthographic_lh(
-                -10.0 * ratio as f32,
-                10.0 * ratio as f32,
-                -10.0,
-                10.0,
-                0.1,
-                1000.0,
-            );
-
-        let (x, y) = sprite_atlas.get_dimensions();
+        let mat = Self::calc_ortho_matrix(renderer.size);
+        let (sprite_width, sprite_height) = sprite_size;
+        let (atlas_width, atlas_height) = sprite_atlas.get_dimensions();
         let globals = SpritePipelineGlobals {
             view_proj_matrix: mat.to_cols_array_2d(),
-            sprite_size: [64, 64],
-            sprite_sheet_size: [x, y],
+            sprite_size: [sprite_width, sprite_height],
+            sprite_sheet_size: [atlas_width, atlas_height],
         };
 
         let globals_buffer =
             renderer
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("View Projection Matrix Buffer"),
+                    label: Some("Globals Buffer"),
                     contents: bytemuck::cast_slice(&[globals]),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
@@ -127,6 +119,7 @@ impl SpriteRenderer {
             sprite_pipeline,
             sprite_bind_group,
             vertex_buffer,
+            globals,
             globals_buffer,
             instances,
         }
@@ -138,21 +131,15 @@ impl SpriteRenderer {
 
     pub fn on_resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.renderer.on_resize(new_size);
-        // let ratio = f64::from(new_size.width) / f64::from(new_size.height);
-        // let mat = OPENGL_TO_WGPU_MATRIX
-        //     * glam::Mat4::orthographic_lh(
-        //         -10.0 * ratio as f32,
-        //         10.0 * ratio as f32,
-        //         -10.0,
-        //         10.0,
-        //         0.1,
-        //         1000.0,
-        //     );
-        // self.queue.write_buffer(
-        //     &self.view_proj_buffer,
-        //     0,
-        //     bytemuck::cast_slice(&mat.to_cols_array()),
-        // )
+
+        let mat = Self::calc_ortho_matrix(new_size);
+        self.globals.view_proj_matrix = mat.to_cols_array_2d();
+
+        self.renderer.queue.write_buffer(
+            &self.globals_buffer,
+            0,
+            bytemuck::cast_slice(&[self.globals]),
+        )
     }
 
     pub fn add_sprite_instance(&mut self, sprite_idx: u32, model_matrix: [[f32; 4]; 4]) {
@@ -223,5 +210,18 @@ impl SpriteRenderer {
 
         self.instances.clear();
         Ok(())
+    }
+
+    fn calc_ortho_matrix(window_size: winit::dpi::PhysicalSize<u32>) -> glam::Mat4 {
+        let ratio = f64::from(window_size.width) / f64::from(window_size.height);
+        OPENGL_TO_WGPU_MATRIX
+            * glam::Mat4::orthographic_lh(
+                -10.0 * ratio as f32,
+                10.0 * ratio as f32,
+                -10.0,
+                10.0,
+                0.1,
+                1000.0,
+            )
     }
 }

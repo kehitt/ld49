@@ -6,13 +6,13 @@ use winit::{
     window::Window,
 };
 
-use specs::{Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
+use specs::{shrev::EventChannel, Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
 
 use crate::{
     game::{
         component::{Display, Transform, Velocity},
         resource::DeltaTime,
-        system::{HelloWorld, RenderSystem, UpdatePos},
+        system::{HelloWorld, RenderSystem, RenderSystemEvent, UpdatePos},
     },
     renderer::SpriteRenderer,
 };
@@ -32,11 +32,15 @@ impl<'a> App<'_> {
             .with(HelloWorld, "hello_updated", &["update_pos"])
             .build();
 
+        let sprite_atlas_bytes = include_bytes!("../assets/spritesheet.png");
+
         let mut render_dispatcher = DispatcherBuilder::new()
             .with(
-                RenderSystem {
-                    renderer: Some(pollster::block_on(SpriteRenderer::new(window))),
-                },
+                RenderSystem::new(pollster::block_on(SpriteRenderer::new(
+                    window,
+                    sprite_atlas_bytes,
+                    (64, 64),
+                ))),
                 "render_system",
                 &[],
             )
@@ -52,7 +56,7 @@ impl<'a> App<'_> {
                 rot: glam::Quat::IDENTITY,
             })
             .with(Velocity { x: 1.0, y: -1.0 })
-            .with(Display { sprite_idx: 0 })
+            .with(Display { sprite_idx: 1 })
             .build();
 
         world
@@ -108,14 +112,20 @@ impl<'a> App<'_> {
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => self.close_requested = true,
-                WindowEvent::Resized(physical_size) => {
-                    // Dispatch world events
-                    //self.renderer.on_resize(physical_size);
-                }
-                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                    // Dispatch world events
-                    //self.renderer.on_resize(*new_inner_size);
-                }
+                WindowEvent::Resized(physical_size) => self
+                    .world
+                    .fetch_mut::<EventChannel<RenderSystemEvent>>()
+                    .single_write(RenderSystemEvent::Resize(
+                        physical_size.width,
+                        physical_size.height,
+                    )),
+                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => self
+                    .world
+                    .fetch_mut::<EventChannel<RenderSystemEvent>>()
+                    .single_write(RenderSystemEvent::Resize(
+                        new_inner_size.width,
+                        new_inner_size.height,
+                    )),
                 _ => (),
             },
             _ => (),

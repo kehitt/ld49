@@ -1,6 +1,6 @@
 use winit::window::Window;
 
-mod pipeline;
+mod sprite_pipeline;
 mod sprite_renderer;
 mod texture;
 

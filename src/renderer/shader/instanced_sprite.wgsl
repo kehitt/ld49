@@ -50,8 +50,8 @@ fn get_sprite_cell(
 ) -> SpriteCell {
     var cell: SpriteCell;
     var width = (sprite_sheet_size[0] / sprite_size[0]);
-    cell.x = 0u;
-    cell.y = 0u;
+    cell.x = sprite_idx % width;
+    cell.y = sprite_idx / width;
     return cell;
 }
 
@@ -61,13 +61,13 @@ fn get_sprite_cell_rect(
     sprite_sheet_size: array<u32, 2>,
 ) -> SpriteRect {
     var x_min = sprite_size[0] * sprite_cell.x;
-    var x_max = (sprite_size[0] * sprite_cell.x) + sprite_size[0];
-    var y_min = sprite_size[1] * sprite_cell.y;
-    var y_max = (sprite_size[1] * sprite_cell.y) + sprite_size[1];
+    var x_max = x_min + sprite_size[0];
+    var y_min = sprite_size[1]  * sprite_cell.y;
+    var y_max = y_min + sprite_size[1];
 
     var rect: SpriteRect;
-    rect.x_min = normalize_val(x_min, 0u, sprite_sheet_size[0] * 4u);
-    rect.x_max = normalize_val(x_max, 0u, sprite_sheet_size[0] * 4u);
+    rect.x_min = normalize_val(x_min, 0u, sprite_sheet_size[0]);
+    rect.x_max = normalize_val(x_max, 0u, sprite_sheet_size[0]);
     rect.y_min = normalize_val(y_min, 0u, sprite_sheet_size[1]);
     rect.y_max = normalize_val(y_max, 0u, sprite_sheet_size[1]);
     return rect;
@@ -104,8 +104,8 @@ fn main(
     out.tex_coords = to_sprite_coords(
         in.tex_coords,
         instance.sprite_idx,
+        globals.sprite_size,
         globals.sprite_sheet_size,
-        globals.sprite_size
     );
     out.clip_position = globals.view_proj_mat * model_matrix * vec4<f32>(in.position, 1.0);
     return out;

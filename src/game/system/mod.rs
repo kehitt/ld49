@@ -6,7 +6,7 @@ use super::{
 };
 
 mod render_system;
-pub use render_system::RenderSystem;
+pub use render_system::{RenderSystem, RenderSystemEvent};
 
 pub struct HelloWorld;
 
