@@ -1,8 +1,6 @@
 use specs::prelude::*;
 
-use crate::{
-    game::component::{Collider, Player, Transform}
-};
+use crate::game::component::{Collider, Player, Transform};
 
 #[derive(Default)]
 pub struct PlayerCollisionSystem;

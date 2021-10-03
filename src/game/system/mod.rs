@@ -73,11 +73,14 @@ impl<'a> System<'a> for ScreenBoundsKeeper {
 
             if transform.position.x > half_width || transform.position.x < -half_width {
                 velocity.direction.x = -velocity.direction.x;
-                transform.position.x = half_width;
             } else if transform.position.y > half_height || transform.position.y < -half_height {
                 velocity.direction.y = -velocity.direction.y;
-                transform.position.y = half_height;
             }
+
+            transform.position = transform.position.clamp(
+                glam::vec2(-half_width, -half_height),
+                glam::vec2(half_width, half_height),
+            )
         }
     }
 }

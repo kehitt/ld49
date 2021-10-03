@@ -8,7 +8,17 @@ use winit::{
 
 use specs::{shrev::EventChannel, Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
 
-use crate::{game::{component::{Collider, ColliderTag, Display, Player, Transform, Velocity}, resource::{DeltaTime, KeyboardEvent, WindowEvent as GameWindowEvent}, system::{PlayerCollisionSystem, PlayerMovementSystem, RenderSystem, ScreenBoundsKeeper, VelocityApplicator}}, renderer::SpriteRenderer};
+use crate::{
+    game::{
+        component::{Collider, ColliderTag, Display, Player, Transform, Velocity},
+        resource::{DeltaTime, KeyboardEvent, WindowEvent as GameWindowEvent},
+        system::{
+            PlayerCollisionSystem, PlayerMovementSystem, RenderSystem, ScreenBoundsKeeper,
+            VelocityApplicator,
+        },
+    },
+    renderer::SpriteRenderer,
+};
 
 pub struct App<'a> {
     world: World,
@@ -22,8 +32,16 @@ impl<'a> App<'_> {
         let size = window.inner_size();
         let mut world = World::new();
         let mut update_dispatcher = DispatcherBuilder::new()
-            .with(PlayerMovementSystem::default(), "player_movement_system", &[])
-            .with(PlayerCollisionSystem::default(), "player_collision_system", &[])
+            .with(
+                PlayerMovementSystem::default(),
+                "player_movement_system",
+                &[],
+            )
+            .with(
+                PlayerCollisionSystem::default(),
+                "player_collision_system",
+                &[],
+            )
             .with(
                 VelocityApplicator::default(),
                 "velocity_applicator",
