@@ -101,3 +101,9 @@ impl Collider {
 pub struct Lifetime {
     pub remaining: f32,
 }
+
+#[derive(Component, Debug)]
+#[storage(VecStorage)]
+pub struct Spinner {
+    pub speed: f32,
+}

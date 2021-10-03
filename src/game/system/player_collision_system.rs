@@ -44,11 +44,12 @@ impl<'a> System<'a> for PlayerCollisionSystem {
                         ColliderTag::Player => (),
                         ColliderTag::Asteroid => {
                             player_comp.health -= 50.0 * dt.0.as_secs_f32();
-                            println!("Player health: {}", player_comp.health);
                         }
                         ColliderTag::Health => {
-                            player_comp.health += 10.0;
-                            println!("Player health: {}", player_comp.health);
+                            player_comp.health += 30.0;
+                            if player_comp.health > 100.0 {
+                                player_comp.health = 100.0;
+                            }
                         }
                     }
                 }

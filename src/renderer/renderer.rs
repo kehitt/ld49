@@ -2,13 +2,15 @@ use wgpu::util::DeviceExt;
 use winit::window::Window;
 
 use crate::renderer::{
+    background_pipeline::{BackgroundBinds, BackgroundPipeline, BackgroundPipelineGlobals},
     sprite_pipeline::{SpriteBinds, SpritePipelineGlobals},
     texture::Texture,
 };
 
 use super::{
+    background_pipeline::BackgroundBindGroup,
     sprite_pipeline::{Instance, SpriteBindGroup, SpritePipeline, Vertex},
-    Renderer,
+    RenderDevice,
 };
 
 const SPRITE_VERTICES: &[Vertex] = &[
@@ -45,34 +47,58 @@ const OPENGL_TO_WGPU_MATRIX: glam::Mat4 = glam::const_mat4!(
     [0.0, 0.0, 0.5, 1.0]
 );
 
-pub struct SpriteRenderer {
-    renderer: Renderer,
+pub struct Renderer {
+    renderer: RenderDevice,
 
     sprite_pipeline: SpritePipeline,
     sprite_bind_group: SpriteBindGroup,
 
+    background_pipeline: BackgroundPipeline,
+    background_bind_group: BackgroundBindGroup,
+
     vertex_buffer: wgpu::Buffer,
 
-    globals: SpritePipelineGlobals,
+    sprite_globals: SpritePipelineGlobals,
     #[allow(dead_code)]
-    globals_buffer: wgpu::Buffer,
+    sprite_globals_buffer: wgpu::Buffer,
+
+    background_globals: BackgroundPipelineGlobals,
+    #[allow(dead_code)]
+    background_globals_buffer: wgpu::Buffer,
 
     instances: Vec<Instance>,
 }
 
-impl SpriteRenderer {
-    pub async fn new(window: &Window, sprite_atlas_data: &[u8], sprite_size: (u32, u32)) -> Self {
-        let renderer = Renderer::new(window).await;
+impl Renderer {
+    pub async fn new(
+        window: &Window,
+        sprite_atlas_data: &[u8],
+        sprite_size: (u32, u32),
+        background_atlas_data: &[u8],
+        background_size: (u32, u32),
+    ) -> Self {
+        let renderer = RenderDevice::new(window).await;
 
-        let shader_module = renderer
+        let sprite_shader = renderer
             .device
             .create_shader_module(&wgpu::include_wgsl!("shader/instanced_sprite.wgsl"));
         let sprite_binds = SpriteBinds::new(&renderer.device);
         let sprite_pipeline = SpritePipeline::new(
             &renderer.device,
             &renderer.config,
-            &shader_module,
+            &sprite_shader,
             &sprite_binds,
+        );
+
+        let background_shader = renderer
+            .device
+            .create_shader_module(&wgpu::include_wgsl!("shader/background.wgsl"));
+        let background_binds = BackgroundBinds::new(&renderer.device);
+        let background_pipeline = BackgroundPipeline::new(
+            &renderer.device,
+            &renderer.config,
+            &background_shader,
+            &background_binds,
         );
 
         let sprite_atlas = Texture::from_bytes(
@@ -83,26 +109,59 @@ impl SpriteRenderer {
         )
         .unwrap();
 
+        let background_atlas = Texture::from_bytes(
+            &renderer.device,
+            &renderer.queue,
+            background_atlas_data,
+            "background_spritesheet.png",
+        )
+        .unwrap();
+
         let mat = Self::calc_ortho_matrix(renderer.size);
         let (sprite_width, sprite_height) = sprite_size;
         let (atlas_width, atlas_height) = sprite_atlas.get_dimensions();
-        let globals = SpritePipelineGlobals {
+        let sprite_globals = SpritePipelineGlobals {
             view_proj_matrix: mat.to_cols_array_2d(),
             sprite_size: [sprite_width, sprite_height],
             sprite_sheet_size: [atlas_width, atlas_height],
         };
 
-        let globals_buffer =
+        let sprite_globals_buffer =
             renderer
                 .device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Globals Buffer"),
-                    contents: bytemuck::cast_slice(&[globals]),
+                    label: Some("Sprite Globals Buffer"),
+                    contents: bytemuck::cast_slice(&[sprite_globals]),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
 
         let sprite_bind_group =
-            sprite_binds.bind_data(&renderer.device, &sprite_atlas, &globals_buffer);
+            sprite_binds.bind_data(&renderer.device, &sprite_atlas, &sprite_globals_buffer);
+
+        let (sprite_width, sprite_height) = background_size;
+        let (atlas_width, atlas_height) = background_atlas.get_dimensions();
+        let background_globals = BackgroundPipelineGlobals {
+            view_proj_matrix: mat.to_cols_array_2d(),
+            sprite_idx: 0,
+            sprite_size: [sprite_width, sprite_height],
+            sprite_sheet_size: [atlas_width, atlas_height],
+            player_health: 1.0,
+        };
+
+        let background_globals_buffer =
+            renderer
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Background Globals Buffer"),
+                    contents: bytemuck::cast_slice(&[background_globals]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+
+        let background_bind_group = background_binds.bind_data(
+            &renderer.device,
+            &background_atlas,
+            &background_globals_buffer,
+        );
 
         let vertex_buffer = renderer
             .device
@@ -118,9 +177,13 @@ impl SpriteRenderer {
             renderer,
             sprite_pipeline,
             sprite_bind_group,
+            background_pipeline,
+            background_bind_group,
             vertex_buffer,
-            globals,
-            globals_buffer,
+            sprite_globals,
+            sprite_globals_buffer,
+            background_globals,
+            background_globals_buffer,
             instances,
         }
     }
@@ -133,12 +196,22 @@ impl SpriteRenderer {
         self.renderer.on_resize(new_size);
 
         let mat = Self::calc_ortho_matrix(new_size);
-        self.globals.view_proj_matrix = mat.to_cols_array_2d();
+        self.sprite_globals.view_proj_matrix = mat.to_cols_array_2d();
 
         self.renderer.queue.write_buffer(
-            &self.globals_buffer,
+            &self.sprite_globals_buffer,
             0,
-            bytemuck::cast_slice(&[self.globals]),
+            bytemuck::cast_slice(&[self.sprite_globals]),
+        )
+    }
+
+    pub fn set_background_state(&mut self, sprite_idx: u32, player_health: f32) {
+        self.background_globals.player_health = player_health;
+        self.background_globals.sprite_idx = sprite_idx;
+        self.renderer.queue.write_buffer(
+            &self.background_globals_buffer,
+            0,
+            bytemuck::cast_slice(&[self.background_globals]),
         )
     }
 
@@ -176,12 +249,12 @@ impl SpriteRenderer {
             self.renderer
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("SpriteRenderer command encoder"),
+                    label: Some("Renderer command encoder"),
                 });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Instanced sprite render pass"),
+                label: Some("Background render pass"),
                 color_attachments: &[wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
@@ -192,6 +265,26 @@ impl SpriteRenderer {
                             b: 0.0,
                             a: 1.0,
                         }),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: None,
+            });
+
+            render_pass.set_pipeline(&self.background_pipeline.pipeline);
+            render_pass.set_bind_group(0, &self.background_bind_group.0, &[]);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.draw(0..6, 0..1);
+        }
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Instanced sprite render pass"),
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
                         store: true,
                     },
                 }],

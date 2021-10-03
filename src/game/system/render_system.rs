@@ -3,18 +3,18 @@ use winit::dpi::PhysicalSize;
 
 use crate::{
     game::component::{Display, Transform},
-    game::resource::{GameWindowSize, WindowEvent},
-    renderer::SpriteRenderer,
+    game::resource::{GameStateForRenderer, GameWindowSize, WindowEvent},
+    renderer::Renderer,
 };
 
 #[derive(Default)]
 pub struct RenderSystem {
-    renderer: Option<SpriteRenderer>,
+    renderer: Option<Renderer>,
     reader: Option<ReaderId<WindowEvent>>,
 }
 
 impl RenderSystem {
-    pub fn new(renderer: SpriteRenderer) -> Self {
+    pub fn new(renderer: Renderer) -> Self {
         Self {
             renderer: Some(renderer),
             reader: None,
@@ -27,6 +27,7 @@ impl<'a> System<'a> for RenderSystem {
         ReadStorage<'a, Transform>,
         ReadStorage<'a, Display>,
         Read<'a, EventChannel<WindowEvent>>,
+        Read<'a, GameStateForRenderer>,
         Write<'a, GameWindowSize>,
     );
 
@@ -39,7 +40,7 @@ impl<'a> System<'a> for RenderSystem {
         );
     }
 
-    fn run(&mut self, (pos, disp, events, mut game_window_size): Self::SystemData) {
+    fn run(&mut self, (pos, disp, events, game_state, mut game_window_size): Self::SystemData) {
         if let Some(renderer) = &mut self.renderer {
             // Process events
             for event in events.read(&mut self.reader.as_mut().unwrap()) {
@@ -54,8 +55,10 @@ impl<'a> System<'a> for RenderSystem {
             }
             // Render stuff
             for (position, display) in (&pos, &disp).join() {
-                renderer.add_sprite_instance(display.sprite_idx, position.to_model_mat())
+                renderer.add_sprite_instance(display.sprite_idx, position.to_model_mat());
             }
+
+            renderer.set_background_state(game_state.background_idx, game_state.player_health);
             renderer.draw_instances_or_panic();
         } else {
             panic!("No renderer was set!")

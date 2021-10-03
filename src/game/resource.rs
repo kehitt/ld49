@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use specs::Entity;
 use winit::event::VirtualKeyCode;
 
 #[derive(Default)]
@@ -19,7 +20,7 @@ pub enum KeyboardEvent {
 #[derive(Debug)]
 pub enum GameState {
     GameStateInit {},
-    GameStatePlay {},
+    GameStatePlay { player_entity: Entity },
     GameStateEnd {},
 }
 
@@ -31,3 +32,9 @@ impl Default for GameState {
 
 #[derive(Debug, Default)]
 pub struct GameWindowSize(pub u32, pub u32);
+
+#[derive(Debug, Default)]
+pub struct GameStateForRenderer {
+    pub player_health: f32,
+    pub background_idx: u32,
+}

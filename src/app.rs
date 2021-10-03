@@ -12,12 +12,13 @@ use crate::{
     game::{
         resource::{DeltaTime, GameWindowSize, KeyboardEvent, WindowEvent as GameWindowEvent},
         system::{
-            AsteroidSpawnerSystem, EntityLifetimeSystem, GameManagerSystem,
+            AsteroidSpawnerSystem, BackgroundAnimatorSystem, EntityLifetimeSystem,
+            EntitySpinnerSystem, GameManagerSystem, ParticleSpawnerSystem,
             PlayerBoundsEnforcerSystem, PlayerCollisionSystem, PlayerMovementSystem, RenderSystem,
             RepairPackManagerSystem, VelocityApplicatorSystem,
         },
     },
-    renderer::SpriteRenderer,
+    renderer::Renderer,
 };
 
 pub struct App<'a> {
@@ -37,6 +38,11 @@ impl<'a> App<'_> {
                 AsteroidSpawnerSystem::default(),
                 "asteroid_spawner_system",
                 &["game_manager_system"],
+            )
+            .with(
+                ParticleSpawnerSystem::default(),
+                "particle_spawner_system",
+                &[],
             )
             .with(
                 PlayerMovementSystem::default(),
@@ -59,6 +65,7 @@ impl<'a> App<'_> {
                 "entity_lifetime_system",
                 &[],
             )
+            .with(EntitySpinnerSystem::default(), "entity_spinner_system", &[])
             .with(
                 RepairPackManagerSystem::default(),
                 "repair_pack_manager_system",
@@ -67,16 +74,24 @@ impl<'a> App<'_> {
             .build();
 
         let sprite_atlas_bytes = include_bytes!("../assets/spritesheet.png");
+        let background_atlas_bytes = include_bytes!("../assets/backgrounds.png");
 
         let mut render_dispatcher = DispatcherBuilder::new()
             .with(
-                RenderSystem::new(pollster::block_on(SpriteRenderer::new(
+                BackgroundAnimatorSystem::default(),
+                "background_animator_system",
+                &[],
+            )
+            .with(
+                RenderSystem::new(pollster::block_on(Renderer::new(
                     window,
                     sprite_atlas_bytes,
                     (64, 64),
+                    background_atlas_bytes,
+                    (320, 200),
                 ))),
                 "render_system",
-                &[],
+                &["background_animator_system"],
             )
             .build();
 

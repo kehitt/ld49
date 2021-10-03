@@ -8,7 +8,7 @@ impl Default for AABB {
     fn default() -> Self {
         Self {
             pos: glam::vec2(0.0, 0.0),
-            size: glam::vec2(1.0, 1.0),
+            size: glam::vec2(1.2, 1.2),
         }
     }
 }

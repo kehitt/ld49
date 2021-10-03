@@ -15,7 +15,7 @@ pub struct RepairPackManagerSystem {
 impl Default for RepairPackManagerSystem {
     fn default() -> Self {
         Self {
-            spawn_timeout: 10.0,
+            spawn_timeout: 5.0,
             spawn_clock: 0.0,
             active_entity: None,
         }
@@ -52,7 +52,7 @@ impl<'a> System<'a> for RepairPackManagerSystem {
         ): Self::SystemData,
     ) {
         match *game_state {
-            GameState::GameStatePlay {} => {
+            GameState::GameStatePlay { .. } => {
                 self.spawn_clock -= dt.0.as_secs_f32();
                 let mut entity_deleted = false;
 
@@ -66,7 +66,7 @@ impl<'a> System<'a> for RepairPackManagerSystem {
                     self.spawn_clock = self.spawn_timeout
                 } else if let Some(active_pack) = &self.active_entity {
                     // Check if any players have collided with the pack to destroy it
-                    // Definitely not the best solution
+                    // @REFACTOR Definitely not the best solution (im thinking generic pickup system)
                     let repair_pack_collider = collider_storage.get(*active_pack).unwrap();
                     let repair_pack_transform = transform_storage.get(*active_pack).unwrap();
 
@@ -94,6 +94,11 @@ impl<'a> System<'a> for RepairPackManagerSystem {
                     self.active_entity = None
                 }
             }
+            GameState::GameStateEnd {} => {
+                if let Some(active_pack) = self.active_entity.take() {
+                    entities.delete(active_pack).unwrap();
+                }
+            }
             _ => (),
         }
     }
@@ -118,10 +123,11 @@ impl RepairPackManagerSystem {
             asteroid,
             Transform {
                 position: transform_pos,
+                scale: glam::vec2(40.0, 40.0),
                 ..Default::default()
             },
         );
-        updater.insert(asteroid, Display { sprite_idx: 0 });
+        updater.insert(asteroid, Display { sprite_idx: 1 });
         updater.insert(asteroid, Collider::new(ColliderTag::Health));
 
         asteroid

@@ -1,12 +1,13 @@
 use winit::window::Window;
 
+mod background_pipeline;
+mod renderer;
 mod sprite_pipeline;
-mod sprite_renderer;
 mod texture;
 
-pub use sprite_renderer::SpriteRenderer;
+pub use renderer::Renderer;
 
-pub struct Renderer {
+pub struct RenderDevice {
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -14,7 +15,7 @@ pub struct Renderer {
     pub size: winit::dpi::PhysicalSize<u32>,
 }
 
-impl Renderer {
+impl RenderDevice {
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::Backends::all());
