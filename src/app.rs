@@ -8,14 +8,7 @@ use winit::{
 
 use specs::{shrev::EventChannel, Builder, Dispatcher, DispatcherBuilder, World, WorldExt};
 
-use crate::{
-    game::{
-        component::{Display, Player, Transform, Velocity},
-        resource::{DeltaTime, KeyboardEvent, WindowEvent as GameWindowEvent},
-        system::{PlayerMovementSystem, RenderSystem, ScreenBoundsKeeper, VelocityApplicator},
-    },
-    renderer::SpriteRenderer,
-};
+use crate::{game::{component::{Collider, ColliderTag, Display, Player, Transform, Velocity}, resource::{DeltaTime, KeyboardEvent, WindowEvent as GameWindowEvent}, system::{PlayerCollisionSystem, PlayerMovementSystem, RenderSystem, ScreenBoundsKeeper, VelocityApplicator}}, renderer::SpriteRenderer};
 
 pub struct App<'a> {
     world: World,
@@ -29,16 +22,17 @@ impl<'a> App<'_> {
         let size = window.inner_size();
         let mut world = World::new();
         let mut update_dispatcher = DispatcherBuilder::new()
-            .with(PlayerMovementSystem::default(), "player_system", &[])
+            .with(PlayerMovementSystem::default(), "player_movement_system", &[])
+            .with(PlayerCollisionSystem::default(), "player_collision_system", &[])
             .with(
                 VelocityApplicator::default(),
                 "velocity_applicator",
-                &["player_system"],
+                &["player_movement_system"],
             )
             .with(
                 ScreenBoundsKeeper::new((size.width, size.height)),
                 "bounds_keeper",
-                &["velocity_applicator"],
+                &[],
             )
             .build();
 
@@ -62,12 +56,13 @@ impl<'a> App<'_> {
         world
             .create_entity()
             .with(Transform {
-                position: glam::Vec2::new(1.0, 0.0),
+                position: glam::Vec2::new(100.0, 0.0),
                 ..Default::default()
             })
             .with(Velocity::default())
             .with(Display { sprite_idx: 0 })
             .with(Player)
+            .with(Collider::new(ColliderTag::Player))
             .build();
 
         world
@@ -75,6 +70,7 @@ impl<'a> App<'_> {
             .with(Transform::default())
             .with(Velocity::default())
             .with(Display { sprite_idx: 1 })
+            .with(Collider::new(ColliderTag::Asteroid))
             .build();
 
         Self {

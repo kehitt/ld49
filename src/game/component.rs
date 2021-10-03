@@ -1,5 +1,7 @@
 use specs::{Component, NullStorage, VecStorage};
 
+use crate::physics::AABB;
+
 #[derive(Component, Debug)]
 #[storage(VecStorage)]
 pub struct Transform {
@@ -62,3 +64,26 @@ pub struct Display {
 #[derive(Component, Debug, Default)]
 #[storage(NullStorage)]
 pub struct Player;
+
+#[derive(Debug)]
+pub enum ColliderTag {
+    Player,
+    Asteroid,
+    Health,
+}
+
+#[derive(Component, Debug)]
+#[storage(VecStorage)]
+pub struct Collider {
+    pub tag: ColliderTag,
+    pub bounding_box: AABB,
+}
+
+impl Collider {
+    pub fn new(tag: ColliderTag) -> Self {
+        Self {
+            tag,
+            bounding_box: Default::default(),
+        }
+    }
+}
