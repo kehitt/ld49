@@ -61,12 +61,11 @@ impl AsteroidSpawnerSystem {
         let max_random_speed = 5.0;
 
         let transform_pos = glam::vec2(
-            rng.gen_range(-(game_window_size.0 as f32 / 4.0)..(game_window_size.0 as f32 / 4.0)),
+            rng.gen_range(-(game_window_size.0 as f32 / 2.0)..(game_window_size.0 as f32 / 2.0)),
             game_window_size.1 as f32,
         );
 
-        let velocity_dir =
-            glam::vec2(rng.gen_range(-0.25..0.25), rng.gen_range(-1.0..0.0)).normalize();
+        let velocity_dir = glam::vec2(rng.gen_range(-0.1..0.1), -1.0).normalize();
         let velocity_speed = rng.gen_range(1.0..max_random_speed);
 
         let scale = glam::vec2(
