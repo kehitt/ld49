@@ -1,7 +1,7 @@
 # LD49
 
 ### An asteroids-inspired game in <48 hours for Ludum Dare 49.
-###### ...jank code ensues
+###### ...jank ensues
 ---
 
 ![screenshot](screenshot.jpg)
@@ -28,6 +28,8 @@ $ cargo run --release
 
 ## Gameplay
 
+WASD.
+
 You're on a spaceship trying to escape and orbit around an unstable star. Radiation is constantly damaging your systems. Good thing someone left all those repair kits in space.
 
 White bar on top of the screen is your health. Dodge asteroids, pick up the repair kits. There is no ending.
@@ -36,4 +38,4 @@ White bar on top of the screen is your health. Dodge asteroids, pick up the repa
 - Refactor, a lot
 
 ## References
-- [Ludum Dare 49 Game Page](https://ldjam.com/events/ludum-dare/49/$260919)
+- [Ludum Dare 49 Game Page](https://ldjam.com/events/ludum-dare/49/unstable-orbit)
